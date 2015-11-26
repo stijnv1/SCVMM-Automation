@@ -96,13 +96,17 @@ Workflow FCS_SCVMMUpdateBaseLineWorkflow
 			Set-SCBaseline -VMMServer $SCVMMServer -Baseline $baseline -Name $BaseLineName -Description $BaseLineName -RemoveUpdates $RemoveupdateList | Out-Null
 		}
 
-		Write-Output "Synchronizing with WSUS server..." 
+		Write-Output "Synchronizing with WSUS server...`n`n" 
 		Get-SCUpdateServer -VMMServer $SCVMMServer | Start-SCUpdateServerSynchronization | out-null
 
 		. Update-BaseLineUpdates -BaseLineName "Security Updates" -SCVMMServer $Using:SCVMMServer
+		Write-Output "`n`n`n"
 		. Update-BaseLineUpdates -BaseLineName "Critical Updates" -SCVMMServer $Using:SCVMMServer
+		Write-Output "`n`n`n"
 		. Update-BaseLineUpdates -BaseLineName "Updates" -SCVMMServer $Using:SCVMMServer
+		Write-Output "`n`n`n"
 		. Update-BaseLineUpdates -BaseLineName "Update Rollups" -SCVMMServer $Using:SCVMMServer
+		Write-Output "`n`n`n"
 
 	} -PSComputerName $SCVMMServer -PSCredential $SCVMMServerCred
 	#endregion
