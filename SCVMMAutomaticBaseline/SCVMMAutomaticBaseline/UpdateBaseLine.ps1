@@ -26,6 +26,10 @@ Original Author, Mikael Nyström @Truesec
   Mikael Nyström 
 
 #>
+param
+(
+	[string]$SCVMMServer
+)
 
 Function Update-BaseLineUpdates
 {
@@ -37,10 +41,13 @@ Function Update-BaseLineUpdates
 		 ValueFromRemainingArguments=$false,
 		 Position=0)]
 		 [String]
-		 $BaseLineName
+		 $BaseLineName,
+
+		[Parameter(Mandatory=$true)]
+		[string]$SCVMMServer
 	)
 
-	$baseline = Get-SCBaseline -Name $BaseLineName
+	$baseline = Get-SCBaseline -VMMserver $SCVMMServer -Name $BaseLineName
 
 	# Set-SCBaseline -Baseline $baseline -Name $BaseLineName -Description $BaseLineName -RemoveUpdates $baseline.Updates
 	write-host $baseline.UpdateCount : Current number of Updates in Baseline $BaseLineName
@@ -51,25 +58,25 @@ Function Update-BaseLineUpdates
 	if ($baseline.UpdateCount -eq 0) 
 	{ 
 		write-host "No previous updates in" $BaselineName", adding all existing updates for" $BaseLineName "from WSUS"  
-		$addedUpdateList += Get-SCUpdate | Where-Object -Property UpdateClassification -EQ -Value $BaseLineName | Where-Object -Property IsApproved -Like -Value "True" | Where-Object -Property IsDeclined -Like -Value "False"| Where-Object -Property IsExpired -Like -Value "False" | Where-Object -Property IsSuperseded -Like -Value "False" | Where-Object -Property Products -like "*Windows Server 2012*"
+		$addedUpdateList += Get-SCUpdate -VMMServer $SCVMMServer | Where-Object -Property UpdateClassification -EQ -Value $BaseLineName | Where-Object -Property IsApproved -Like -Value "True" | Where-Object -Property IsDeclined -Like -Value "False"| Where-Object -Property IsExpired -Like -Value "False" | Where-Object -Property IsSuperseded -Like -Value "False" | Where-Object -Property Products -like "*Windows Server 2012*"
 		write-host $addedUpdateList.Count ": New updates to add in" $Baseline 
-		Set-SCBaseline -Baseline $baseline -Name $BaseLineName -Description $BaseLineName -AddUpdates $addedUpdateList -RunAsynchronously
+		Set-SCBaseline -VMMServer $SCVMMServer -Baseline $baseline -Name $BaseLineName -Description $BaseLineName -AddUpdates $addedUpdateList -RunAsynchronously
 	}
 
 	if ($baseline.UpdateCount -gt 0 ) 
 	{ 
 		write-host "Scanning Newest 500 WSUS Updates for matching updates for $BaselineName" 
-		$LatestUpdates = Get-SCUpdate -Newest 500 | Where-Object -Property UpdateClassification -EQ -Value $BaseLineName | Where-Object -Property IsApproved -Like -Value "True" | Where-Object -Property IsDeclined -Like -Value "False"| Where-Object -Property IsExpired -Like -Value "False" | Where-Object -Property IsSuperseded -Like -Value "False" | Where-Object -Property Products -like "*Windows Server 2012*"
+		$LatestUpdates = Get-SCUpdate -VMMServer $SCVMMServer -Newest 500 | Where-Object -Property UpdateClassification -EQ -Value $BaseLineName | Where-Object -Property IsApproved -Like -Value "True" | Where-Object -Property IsDeclined -Like -Value "False"| Where-Object -Property IsExpired -Like -Value "False" | Where-Object -Property IsSuperseded -Like -Value "False" | Where-Object -Property Products -like "*Windows Server 2012*"
 		write-host $LatestUpdates.Count ": Updates found, verifying if update(s) already exist in" $BaseLineName 
 
 		Compare-Object -ReferenceObject $baseline.Updates -DifferenceObject $LatestUpdates -IncludeEqual | % {
-		if($_.SideIndicator -eq '=>') { $addedUpdateList += Get-SCUpdate -ID $_.inputobject.id } 
-	}
+		if($_.SideIndicator -eq '=>') { $addedUpdateList += Get-SCUpdate -VMMServer $SCVMMServer -ID $_.inputobject.id } 
+		}
 
-write-host $addedUpdateList.Count : New updates to be added to SCVMM for $BaseLineName 
-write-host $addedUpdateList | ft
-Set-SCBaseline -Baseline $baseline -Name $BaseLineName -Description $BaseLineName -AddUpdate $addedupdateList -RunAsynchronously 
-}
+		write-host $addedUpdateList.Count : New updates to be added to SCVMM for $BaseLineName 
+		write-host $addedUpdateList | ft
+		Set-SCBaseline -VMMServer $SCVMMServer -Baseline $baseline -Name $BaseLineName -Description $BaseLineName -AddUpdate $addedupdateList -RunAsynchronously 
+	}
 
     write-host "Scan WSUS for Updates that should not be Checked anymore" 
     $remove = ""
@@ -77,18 +84,18 @@ Set-SCBaseline -Baseline $baseline -Name $BaseLineName -Description $BaseLineNam
     $removeUpdateList = ""
     $removeUpdateList = @()
 
-    $remove += Get-SCUpdate | Where-Object -Property UpdateClassification -EQ -Value $BaseLineName | Where-Object -Property IsApproved -Like -Value "False" | Where-Object -Property Products -like "*Windows Server 2012*"
-    $remove += Get-SCUpdate | Where-Object -Property UpdateClassification -EQ -Value $BaseLineName | Where-Object -Property IsDeclined -Like -Value "True"| Where-Object -Property Products -like "*Windows Server 2012*"
-    $remove += Get-SCUpdate | Where-Object -Property UpdateClassification -EQ -Value $BaseLineName | Where-Object -Property IsExpired -Like -Value "True" | Where-Object -Property Products -like "*Windows Server 2012*"
-    $remove += Get-SCUpdate | Where-Object -Property UpdateClassification -EQ -Value $BaseLineName | Where-Object -Property IsSuperseded -Like -Value "True" | Where-Object -Property Products -like "*Windows Server 2012*"
+    $remove += Get-SCUpdate -VMMServer $SCVMMServer | Where-Object -Property UpdateClassification -EQ -Value $BaseLineName | Where-Object -Property IsApproved -Like -Value "False" | Where-Object -Property Products -like "*Windows Server 2012*"
+    $remove += Get-SCUpdate -VMMServer $SCVMMServer | Where-Object -Property UpdateClassification -EQ -Value $BaseLineName | Where-Object -Property IsDeclined -Like -Value "True"| Where-Object -Property Products -like "*Windows Server 2012*"
+    $remove += Get-SCUpdate -VMMServer $SCVMMServer | Where-Object -Property UpdateClassification -EQ -Value $BaseLineName | Where-Object -Property IsExpired -Like -Value "True" | Where-Object -Property Products -like "*Windows Server 2012*"
+    $remove += Get-SCUpdate -VMMServer $SCVMMServer | Where-Object -Property UpdateClassification -EQ -Value $BaseLineName | Where-Object -Property IsSuperseded -Like -Value "True" | Where-Object -Property Products -like "*Windows Server 2012*"
 
     write-host $remove.count "Remove Unapproved/Superseded/Expired/Declined updates" 
 
     Compare-Object -ReferenceObject $baseline.Updates -DifferenceObject $remove -IncludeEqual | % {
-    if($_.SideIndicator -eq '==') { $removeUpdateList += Get-SCUpdate -ID $_.inputobject.id } 
+    if($_.SideIndicator -eq '==') { $removeUpdateList += Get-SCUpdate -VMMServer $SCVMMServer -ID $_.inputobject.id } 
     }
 
-    Set-SCBaseline -Baseline $baseline -Name $BaseLineName -Description $BaseLineName -RemoveUpdates $RemoveupdateList 
+    Set-SCBaseline -VMMServer $SCVMMServer -Baseline $baseline -Name $BaseLineName -Description $BaseLineName -RemoveUpdates $RemoveupdateList 
 }
 
 Function Add-BaseLine
@@ -101,26 +108,30 @@ Function Add-BaseLine
 		ValueFromRemainingArguments=$false,
 		Position=0)]
 		[String]
-		$BaseLineName
+		$BaseLineName,
+
+		[Parameter(Mandatory=$true)]
+		[string]$SCVMMServer
 	)
-	$baseline = New-SCBaseline -Name $BaseLineName -Description $BaseLineName
-	$scope = Get-SCVMHostGroup -Name "All Hosts"
-	Set-SCBaseline -Baseline $baseline -AddAssignmentScope $scope
-	$scope2 = Get-SCVMMManagedComputer
+
+	$baseline = New-SCBaseline -VMMServer $SCVMMServer -Name $BaseLineName -Description $BaseLineName
+	$scope = Get-SCVMHostGroup -VMMServer $SCVMMServer -Name "All Hosts"
+	Set-SCBaseline -VMMServer $SCVMMServer -Baseline $baseline -AddAssignmentScope $scope
+	$scope2 = Get-SCVMMManagedComputer -VMMServer $SCVMMServer
 
 	ForEach($Server in $scope2)
 	{
-		Set-SCBaseline -Baseline $baseline -Name $baseLine -AddAssignmentScope $Server
+		Set-SCBaseline -VMMServer $SCVMMServer -Baseline $baseline -Name $baseLine -AddAssignmentScope $Server
 	}
 }
 
 Write-Host "Synchronizing with WSUS Server" 
-Get-SCUpdateServer | Start-SCUpdateServerSynchronization 
+Get-SCUpdateServer -VMMServer $SCVMMServer | Start-SCUpdateServerSynchronization 
 
-. Update-BaseLineUpdates "Security Updates"
-. Update-BaseLineUpdates "Critical Updates"
-. Update-BaseLineUpdates "Updates"
-. Update-BaseLineUpdates "Update Rollups"
+. Update-BaseLineUpdates -BaseLineName "Security Updates" -SCVMMServer $SCVMMServer
+. Update-BaseLineUpdates -BaseLineName "Critical Updates" -SCVMMServer $SCVMMServer
+. Update-BaseLineUpdates -BaseLineName "Updates" -SCVMMServer $SCVMMServer
+. Update-BaseLineUpdates -BaseLineName "Update Rollups" -SCVMMServer $SCVMMServer
 
 #. Update-BaseLineUpdates "Definition Updates"
 #. Update-BaseLineUpdates "Service Packs"
