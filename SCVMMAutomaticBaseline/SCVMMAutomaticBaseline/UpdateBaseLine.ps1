@@ -137,5 +137,5 @@ Get-SCUpdateServer -VMMServer $SCVMMServer | Start-SCUpdateServerSynchronization
 #. Update-BaseLineUpdates "Service Packs"
 #. Update-BaseLineUpdates "Feature Packs"
 
-write-host "Start Compliance Scan for all Servers" 
-Get-SCVMMManagedComputer | Start-SCComplianceScan
+#write-host "Start Compliance Scan for all Servers" 
+#Get-SCVMMManagedComputer | Start-SCComplianceScan
