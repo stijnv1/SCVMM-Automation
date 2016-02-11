@@ -30,6 +30,7 @@
   <ItemGroup>
     <Compile Include="ConfigureRDSSessionHost.ps1" />
     <Compile Include="DeployRDSSessionHostScript.ps1" />
+    <Compile Include="RemoveRDSSessionhost.ps1" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <Target Name="Build" />

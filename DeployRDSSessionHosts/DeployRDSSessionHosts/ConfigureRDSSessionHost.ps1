@@ -53,16 +53,53 @@ Invoke-Command -ComputerName $DomainControllerName -ScriptBlock $ADScriptblock -
 
 #endregion
 
-#region add RDS session host to RDS deployment
+#region add RDS session host to deployment and RDS collection
 $RDSSessionHostFQDN = $env:COMPUTERNAME | Get-Fqdn
+$AddRDSSessionHostScriptBlock = {
+	param
+	(
+		$RDSColName,
+		$RDSSHFQDN,
+		$RDSConBrFQDN
+	)
 
-Add-RDServer -Server $RDSSessionHostFQDN -Role RDS-RD-SERVER -ConnectionBroker $RDSConnectionBrokerFQDN
+	Add-RDServer -Server $RDSSHFQDN -Role RDS-RD-SERVER -ConnectionBroker $RDSConBrFQDN -ErrorAction SilentlyContinue
+	Add-RDSessionHost -CollectionName "$RDSColName" -SessionHost $RDSSHFQDN -ConnectionBroker $RDSConBrFQDN -ErrorAction SilentlyContinue
+}
+
+#Invoke-Command -ComputerName $RDSConnectionBrokerFQDN -ScriptBlock $AddRDSSessionHostScriptBlock -Credential $cred -ArgumentList "$RDSCollectionName", $RDSSessionHostFQDN, $RDSConnectionBrokerFQDN
+
+Add-RDServer -Server $RDSSessionHostFQDN -Role RDS-RD-SERVER -ConnectionBroker $RDSConnectionBrokerFQDN -ErrorAction SilentlyContinue
+Add-RDSessionHost -CollectionName "$RDSCollectionName" -SessionHost $RDSSessionHostFQDN -ConnectionBroker $RDSConnectionBrokerFQDN -ErrorAction SilentlyContinue
+
+#possible bug in RDS powershell. A remove and re-add to the RDS collection should solve the "element not found" error when connecting to newly added RDS session host using connection broker
+Remove-RDSessionHost -SessionHost $RDSSessionHostFQDN -ConnectionBroker $RDSConnectionBrokerFQDN -ErrorAction SilentlyContinue
+Add-RDSessionHost -CollectionName "$RDSCollectionName" -SessionHost $RDSSessionHostFQDN -ConnectionBroker $RDSConnectionBrokerFQDN -ErrorAction SilentlyContinue
 
 #endregion
 
-#region add RDS session host to RDS collection
-Write-Output "$RDSCollectionName"
-Add-RDSessionHost -CollectionName "$RDSCollectionName" -SessionHost $RDSSessionHostFQDN -ConnectionBroker $RDSConnectionBrokerFQDN
+#region add RDS session host to RDS gateway local group
+$RDSGWScriptBlock = {
+	param
+	(
+		$RDSSessionHostFQDN
+	)
+	Import-Module RemoteDesktopServices
+	cd RDS:
+	cd GatewayServer
+	cd GatewayManagedComputerGroups
+	cd 'RDS 2012 R2 Farm'
+	cd computers
+
+	New-Item -Name $RDSSessionHostFQDN
+}
+
+#get RDS gateway servername
+$RDSGatewayServerNameFQDN = (Get-RDServer -ConnectionBroker $RDSConnectionBrokerFQDN | ? Roles -eq "RDS-GATEWAY").Server
+
+#start scriptblock
+Invoke-Command -ComputerName $RDSGatewayServerNameFQDN -Credential $cred -ScriptBlock $RDSGWScriptBlock -ArgumentList $RDSSessionHostFQDN
+
 #endregion
 
 #region reboot RDS session host to activate correct GPOs based on computer account membership
