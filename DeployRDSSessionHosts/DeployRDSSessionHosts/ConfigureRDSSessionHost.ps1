@@ -70,9 +70,14 @@ $AddRDSSessionHostScriptBlock = {
 #Invoke-Command -ComputerName $RDSConnectionBrokerFQDN -ScriptBlock $AddRDSSessionHostScriptBlock -Credential $cred -ArgumentList "$RDSCollectionName", $RDSSessionHostFQDN, $RDSConnectionBrokerFQDN
 
 Add-RDServer -Server $RDSSessionHostFQDN -Role RDS-RD-SERVER -ConnectionBroker $RDSConnectionBrokerFQDN -ErrorAction SilentlyContinue
+Write-Output "Start sleep of configuration script for 30 seconds before adding session host to collection for the first time"
+Start-Sleep -Seconds 30
 Add-RDSessionHost -CollectionName "$RDSCollectionName" -SessionHost $RDSSessionHostFQDN -ConnectionBroker $RDSConnectionBrokerFQDN -ErrorAction SilentlyContinue
 
 #possible bug in RDS powershell. A remove and re-add to the RDS collection should solve the "element not found" error when connecting to newly added RDS session host using connection broker
+Write-Output "Start sleep of configuration script for 30 seconds before re-adding the session host to the collection"
+Start-Sleep -Seconds 30
+
 Remove-RDSessionHost -SessionHost $RDSSessionHostFQDN -ConnectionBroker $RDSConnectionBrokerFQDN -ErrorAction SilentlyContinue
 Add-RDSessionHost -CollectionName "$RDSCollectionName" -SessionHost $RDSSessionHostFQDN -ConnectionBroker $RDSConnectionBrokerFQDN -ErrorAction SilentlyContinue
 
