@@ -43,6 +43,9 @@ param
 	[string]$ADUserName,
 
 	[Parameter(Mandatory=$true)]
+	[string]$ADPassword,
+
+	[Parameter(Mandatory=$true)]
 	[string]$DCName
 )
 Function WriteToLog
@@ -114,6 +117,7 @@ Try
 	Get-SCServiceSetting -ServiceConfiguration $ServiceConfig -Name "RDSSessionhostADGroup" | Set-SCServiceSetting -Value $RDSSessionHostADGroup | Out-Null
 	Get-SCServiceSetting -ServiceConfiguration $ServiceConfig -Name "ADUserName" | Set-SCServiceSetting -Value $ADUserName | Out-Null
 	Get-SCServiceSetting -ServiceConfiguration $ServiceConfig -Name "DomainControllerName" | Set-SCServiceSetting -Value $DCName | Out-Null
+	Get-SCServiceSetting -ServiceConfiguration $ServiceConfig -Name "ADPassword" | Set-SCServiceSetting -Value $ADPassword | Out-Null
 
 	#region set csv paths
     $ComputerTier = Get-SCComputerTierConfiguration -VMMServer $SCVMMServerName -ServiceConfiguration $ServiceConfig
@@ -122,7 +126,7 @@ Try
     $VMConfig = Get-SCVMConfiguration -VMMServer $SCVMMServerName -ComputerTierConfiguration $ComputerTier
 
 	Write-Verbose "Set VM configuration for VM $($VMConfig.Name)"
-	Set-SCVMConfiguration -VMMServer $SCVMMServerName -VMConfiguration $vmConfig -VMLocation $SCVMMCSVVolumeName
+	Set-SCVMConfiguration -VMMServer $SCVMMServerName -VMConfiguration $vmConfig -VMLocation $SCVMMCSVVolumeName | Out-Null
 	#endregion
 
 	if ($DeployNewService)
